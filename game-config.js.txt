@@ -1,0 +1,54 @@
+window.GAME_CONFIG = {
+  title: "เกมล่าสมบัติ GPS",
+
+  // ระยะปลดล็อกคำถาม หน่วยเป็นเมตร
+  radiusMeters: 30,
+
+  checkpoints: [
+    {
+      name: "จุดที่ 1",
+      lat: null, // ใส่ละติจูดจริงแทน null
+      lng: null, // ใส่ลองจิจูดจริงแทน null
+
+      // ประเภท text = พิมพ์คำตอบ
+      type: "text",
+      question: "ตัวอย่าง: สิ่งใดมีเข็มแต่ไม่สามารถเย็บผ้าได้?",
+      answers: ["นาฬิกา"],
+      points: 100,
+      wrongPenalty: 0
+    },
+
+    {
+      name: "จุดที่ 2",
+      lat: null,
+      lng: null,
+
+      // ประเภท choice = เลือกคำตอบ
+      type: "choice",
+      question: "ตัวอย่าง: ข้อใดเป็นสีของท้องฟ้าในวันที่อากาศแจ่มใส?",
+      options: [
+        { id: "a", label: "สีฟ้า" },
+        { id: "b", label: "สีเขียว" },
+        { id: "c", label: "สีม่วง" }
+      ],
+      answer: "a",
+      points: 100,
+      wrongPenalty: 0
+    },
+
+    {
+      name: "จุดที่ 3",
+      lat: null,
+      lng: null,
+
+      // ประเภท image = แสดงภาพและให้พิมพ์คำตอบ
+      type: "image",
+      question: "ตัวอย่าง: ในภาพมีวัตถุอะไร?",
+      image: "images/question-3.jpg",
+      imageAlt: "ภาพประกอบคำถามจุดที่ 3",
+      answers: ["คำตอบตัวอย่าง"],
+      points: 150,
+      wrongPenalty: 0
+    }
+  ]
+};
