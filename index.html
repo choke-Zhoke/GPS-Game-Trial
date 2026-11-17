@@ -1,30 +1,35 @@
 <!doctype html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1769e0">
-  <title>เกมล่าสมบัติ GPS</title>
+  <title>SDS Quest</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
 
   <style>
-    :root {
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      color: #172033;
-      background: #f3f6fb;
+    * {
+      box-sizing: border-box;
     }
 
     body {
       margin: 0;
-      padding: 24px 14px;
+      padding: 20px 12px;
+      background: #f3f6fb;
+      color: #172033;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     }
 
     main {
-      box-sizing: border-box;
-      max-width: 680px;
+      max-width: 760px;
       margin: 0 auto;
-      padding: 24px;
-      background: white;
-      border-radius: 16px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 14px;
       box-shadow: 0 4px 24px #17203314;
     }
 
@@ -33,19 +38,21 @@
     }
 
     .card {
-      margin: 18px 0;
+      margin: 14px 0;
       padding: 16px;
-      border-radius: 12px;
       background: #f0f5ff;
+      border-radius: 10px;
     }
 
-    label {
-      display: block;
-      margin: 8px 0;
+    #map {
+      width: 100%;
+      height: 360px;
+      margin: 14px 0;
+      border-radius: 10px;
+      background: #e5eaf1;
     }
 
     input[type="text"] {
-      box-sizing: border-box;
       width: 100%;
       max-width: 420px;
       padding: 11px;
@@ -54,7 +61,12 @@
       font: inherit;
     }
 
-    input[type="radio"] {
+    .choice {
+      display: block;
+      padding: 9px 0;
+    }
+
+    .choice input {
       margin-right: 8px;
     }
 
@@ -64,7 +76,7 @@
       border: 0;
       border-radius: 8px;
       background: #1769e0;
-      color: white;
+      color: #fff;
       font: inherit;
       cursor: pointer;
     }
@@ -81,435 +93,617 @@
     #questionImage {
       display: block;
       max-width: 100%;
-      max-height: 420px;
-      margin: 14px 0;
-      border-radius: 10px;
+      max-height: 360px;
+      margin: 12px 0;
+      border-radius: 8px;
     }
 
     .muted {
-      color: #536176;
+      color: #526176;
       font-size: .94rem;
     }
 
-    #status, #feedback {
+    #status,
+    #feedback {
       font-weight: 600;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 18px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #dce5f2;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: #1769e0;
+      transition: width .35s ease;
     }
 
     [hidden] {
       display: none !important;
     }
   </style>
-
-  <script src="game-config.js"></script>
 </head>
 
 <body>
-  <main>
-    <h1 id="gameTitle">เกมล่าสมบัติ GPS</h1>
-    <p>เดินไปยังจุดหมายเพื่อปลดล็อกคำถาม</p>
+<main>
+  <h1>SDS Quest</h1>
+  <p>Travel to each marked location to unlock its question.</p>
 
-    <section class="card" id="joinArea">
-      <form id="joinForm">
-        <label for="nickname">ชื่อเล่น</label>
-        <input
-          id="nickname"
-          type="text"
-          maxlength="24"
-          autocomplete="nickname"
-          required
-          placeholder="ใส่ชื่อเล่นของคุณ"
-        >
-        <br>
-        <button id="startButton" type="submit">เริ่มเกม / เล่นต่อ</button>
-      </form>
-      <p class="muted">
-        ชื่อเล่นและคะแนนจะบันทึกไว้ในเบราว์เซอร์ของอุปกรณ์นี้เท่านั้น
-      </p>
-    </section>
+  <section id="joinPanel" class="card">
+    <form id="joinForm">
+      <label for="nickname">Nickname</label><br>
+      <input
+        id="nickname"
+        type="text"
+        maxlength="24"
+        autocomplete="nickname"
+        required
+        placeholder="Enter your nickname"
+      >
+      <br>
+      <button id="startButton" type="submit">Start / Continue</button>
+    </form>
+    <p class="muted">
+      The game uses your location to unlock checkpoints. Your GPS location
+      is not sent to the organizer.
+    </p>
+  </section>
 
-    <section id="gameArea" hidden>
-      <div class="card" aria-live="polite">
-        <p id="playerLabel"></p>
-        <p id="progress"></p>
-        <p id="score">คะแนน: 0</p>
-        <p id="status">รอเริ่มเกม</p>
-        <p id="distance" class="muted"></p>
-        <button id="stopButton" class="secondary" type="button">
-          หยุดตรวจตำแหน่ง
-        </button>
+  <section id="gamePanel" hidden>
+    <div class="card">
+      <p id="playerName"></p>
+      <p id="progressText"></p>
+
+      <div
+        id="progressBar"
+        class="progress-track"
+        role="progressbar"
+        aria-label="Game progress"
+        aria-valuemin="0"
+        aria-valuemax="0"
+        aria-valuenow="0"
+      >
+        <div id="progressFill" class="progress-fill"></div>
       </div>
 
-      <section id="questionArea" class="card" hidden>
-        <h2 id="questionTitle"></h2>
-        <p id="questionText"></p>
-        <img id="questionImage" alt="" hidden>
+      <p id="progressPercent" class="muted">0%</p>
+      <p id="score">Score: 0</p>
+      <p id="status">Preparing game...</p>
+      <p id="distance" class="muted"></p>
 
-        <form id="answerForm">
-          <div id="answerFields"></div>
-          <button type="submit">ส่งคำตอบ</button>
-        </form>
+      <button id="stopButton" class="secondary" type="button">
+        Stop GPS
+      </button>
+    </div>
 
-        <p id="feedback" aria-live="polite"></p>
-      </section>
+    <div id="map" aria-label="Map showing the current checkpoint"></div>
+
+    <section id="questionPanel" class="card" hidden>
+      <h2 id="questionTitle"></h2>
+      <p id="questionText"></p>
+      <img id="questionImage" alt="" hidden>
+
+      <form id="answerForm">
+        <div id="choices"></div>
+        <button id="answerButton" type="submit">Submit answer</button>
+      </form>
+
+      <p id="attemptInfo"></p>
+      <p id="feedback" aria-live="polite"></p>
     </section>
+  </section>
 
-    <p class="muted">
-      เกมนี้ใช้ตำแหน่งขณะเล่นเพื่อเช็กการถึงจุดหมาย และไม่ส่งพิกัดไปยังฐานข้อมูล
-      กด “หยุดตรวจตำแหน่ง” หรือปิดหน้าเว็บเพื่อหยุดการตรวจ GPS
-    </p>
-  </main>
+  <p class="muted">
+    GPS accuracy can vary by device and surroundings.
+  </p>
+</main>
 
-  <script>
-    (() => {
-      const config = window.GAME_CONFIG;
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="game-config.js"></script>
 
-      const $ = id => document.getElementById(id);
-      const joinArea = $("joinArea");
-      const gameArea = $("gameArea");
-      const joinForm = $("joinForm");
-      const nicknameInput = $("nickname");
-      const startButton = $("startButton");
-      const stopButton = $("stopButton");
-      const playerLabel = $("playerLabel");
-      const progressEl = $("progress");
-      const scoreEl = $("score");
-      const statusEl = $("status");
-      const distanceEl = $("distance");
-      const questionArea = $("questionArea");
-      const questionTitle = $("questionTitle");
-      const questionText = $("questionText");
-      const questionImage = $("questionImage");
-      const answerForm = $("answerForm");
-      const answerFields = $("answerFields");
-      const feedbackEl = $("feedback");
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cfg = window.GAME_CONFIG;
+  const firebaseConfig = window.FIREBASE_CONFIG;
 
-      const STORAGE_KEY = "gps-hunt-game-progress-v1";
-      let watchId = null;
-      let reachedCurrentPoint = false;
-      let state = loadState();
+  if (!cfg || !firebaseConfig || !Array.isArray(cfg.checkpoints)) {
+    alert("Check that game-config.js contains the game and Firebase settings.");
+    return;
+  }
 
-      if (!config || !Array.isArray(config.checkpoints)) {
-        statusEl.textContent =
-          "ไม่พบการตั้งค่าเกม กรุณาตรวจสอบไฟล์ game-config.js";
-        startButton.disabled = true;
+  if (
+    cfg.checkpoints.length < 1 ||
+    cfg.checkpoints.length > 1000 ||
+    cfg.checkpoints.some(point =>
+      !Array.isArray(point.options) ||
+      point.options.length !== 4 ||
+      !point.options.some(option => option.id === point.answer)
+    )
+  ) {
+    alert("Check the checkpoint list: use 1–1000 questions and exactly 4 options per question.");
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+
+  const auth = firebase.auth();
+  const db = firebase.database();
+
+  const joinPanel = $("joinPanel");
+  const gamePanel = $("gamePanel");
+  const joinForm = $("joinForm");
+  const nicknameInput = $("nickname");
+  const statusEl = $("status");
+  const scoreEl = $("score");
+  const progressText = $("progressText");
+  const progressBar = $("progressBar");
+  const progressFill = $("progressFill");
+  const progressPercent = $("progressPercent");
+  const distanceEl = $("distance");
+  const questionPanel = $("questionPanel");
+  const questionTitle = $("questionTitle");
+  const questionText = $("questionText");
+  const questionImage = $("questionImage");
+  const choicesEl = $("choices");
+  const feedbackEl = $("feedback");
+  const answerForm = $("answerForm");
+  const answerButton = $("answerButton");
+
+  let playerRef = null;
+  let playerData = null;
+  let map = null;
+  let targetMarker = null;
+  let userMarker = null;
+  let watchId = null;
+  let insideRadius = false;
+  let submitting = false;
+  let renderedCheckpointIndex = null;
+
+  function validPoint(point) {
+    return point &&
+      Number.isFinite(point.lat) &&
+      Number.isFinite(point.lng) &&
+      point.lat >= -90 && point.lat <= 90 &&
+      point.lng >= -180 && point.lng <= 180;
+  }
+
+  function currentCheckpoint() {
+    if (!playerData) return null;
+    return cfg.checkpoints[playerData.checkpointIndex] || null;
+  }
+
+  function stopGps() {
+    if (watchId !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+  }
+
+  function distanceMeters(lat1, lng1, lat2, lng2) {
+    const radians = degrees => degrees * Math.PI / 180;
+    const earthRadius = 6371000;
+    const dLat = radians(lat2 - lat1);
+    const dLng = radians(lng2 - lng1);
+
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(radians(lat1)) *
+      Math.cos(radians(lat2)) *
+      Math.sin(dLng / 2) ** 2;
+
+    return 2 * earthRadius * Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    );
+  }
+
+  function setupMap(point) {
+    if (!map) {
+      map = L.map("map").setView([point.lat, point.lng], 17);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+    }
+
+    if (targetMarker) {
+      map.removeLayer(targetMarker);
+    }
+
+    targetMarker = L.marker([point.lat, point.lng])
+      .addTo(map)
+      .bindPopup("Current checkpoint")
+      .openPopup();
+
+    map.setView([point.lat, point.lng], 17);
+    setTimeout(() => map.invalidateSize(), 100);
+  }
+
+  function renderScoreAndProgress() {
+    if (!playerData) return;
+
+    const total = cfg.checkpoints.length;
+    const done = Math.min(
+      Math.max(Number(playerData.checkpointIndex) || 0, 0),
+      total
+    );
+    const percent = Math.round((done / total) * 100);
+
+    scoreEl.textContent = `Score: ${Math.max(0, Number(playerData.score) || 0)}`;
+    progressText.textContent = `Completed ${done} of ${total} checkpoints`;
+    progressFill.style.width = `${percent}%`;
+    progressBar.setAttribute("aria-valuemax", String(total));
+    progressBar.setAttribute("aria-valuenow", String(done));
+    progressPercent.textContent = `${percent}%`;
+  }
+
+  function updateAttemptText() {
+    const attempts = Number(playerData?.attempts) || 0;
+    $("attemptInfo").textContent = `Attempts used: ${attempts} of 2`;
+  }
+
+  function renderQuestion(point) {
+    questionTitle.textContent = point.name || "Question";
+    questionText.textContent = point.question || "";
+
+    if (point.image) {
+      questionImage.src = point.image;
+      questionImage.alt = point.imageAlt || "Question image";
+      questionImage.hidden = false;
+    } else {
+      questionImage.removeAttribute("src");
+      questionImage.alt = "";
+      questionImage.hidden = true;
+    }
+
+    choicesEl.replaceChildren();
+
+    point.options.forEach((option, index) => {
+      const label = document.createElement("label");
+      label.className = "choice";
+
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "answer";
+      radio.value = option.id;
+      radio.required = index === 0;
+
+      label.append(radio, document.createTextNode(option.label));
+      choicesEl.appendChild(label);
+    });
+
+    feedbackEl.textContent = "";
+    updateAttemptText();
+    questionPanel.hidden = false;
+  }
+
+  function renderCurrentCheckpoint() {
+    insideRadius = false;
+    questionPanel.hidden = true;
+    distanceEl.textContent = "";
+
+    const point = currentCheckpoint();
+
+    if (!point) {
+      stopGps();
+      statusEl.textContent = "Game complete. Thanks for playing!";
+      if (targetMarker && map) {
+        map.removeLayer(targetMarker);
+        targetMarker = null;
+      }
+      renderScoreAndProgress();
+      return;
+    }
+
+    if (!validPoint(point)) {
+      statusEl.textContent =
+        `Set the coordinates for ${point.name} in game-config.js before playing.`;
+      return;
+    }
+
+    setupMap(point);
+    statusEl.textContent = `Go to ${point.name}`;
+    startGps();
+  }
+
+  function showQuestion(point) {
+    if (insideRadius) return;
+
+    insideRadius = true;
+    renderQuestion(point);
+    statusEl.textContent = "Checkpoint reached. Question unlocked.";
+  }
+
+  function handlePosition(position) {
+    const point = currentCheckpoint();
+    if (!point || !validPoint(point)) return;
+
+    const latitude = position.coords.latitude;
+    const longitude = position.coords.longitude;
+    const accuracy = position.coords.accuracy;
+
+    const distance = distanceMeters(
+      latitude,
+      longitude,
+      point.lat,
+      point.lng
+    );
+
+    distanceEl.textContent =
+      `About ${Math.round(distance)} m from the checkpoint ` +
+      `(device GPS accuracy ±${Math.round(accuracy)} m)`;
+
+    if (!map) setupMap(point);
+
+    if (userMarker) {
+      userMarker.setLatLng([latitude, longitude]);
+    } else {
+      userMarker = L.circleMarker([latitude, longitude], {
+        radius: 8,
+        color: "#1769e0"
+      }).addTo(map).bindPopup("Your location");
+    }
+
+    if (distance <= cfg.radiusMeters) {
+      showQuestion(point);
+    } else if (!insideRadius) {
+      statusEl.textContent = `Move closer to ${point.name}`;
+    }
+  }
+
+  function handleLocationError(error) {
+    const messages = {
+      1: "Location permission was denied. Allow location access in your browser.",
+      2: "Location could not be found. Try again in an open area.",
+      3: "Location request timed out. Try again."
+    };
+
+    statusEl.textContent =
+      messages[error.code] || "Could not read your location.";
+  }
+
+  function startGps() {
+    if (!navigator.geolocation) {
+      statusEl.textContent = "This browser does not support GPS location.";
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      statusEl.textContent = "Open the game over HTTPS, such as GitHub Pages.";
+      return;
+    }
+
+    if (watchId !== null) return;
+
+    statusEl.textContent = "Requesting device location...";
+
+    watchId = navigator.geolocation.watchPosition(
+      handlePosition,
+      handleLocationError,
+      {
+        enableHighAccuracy: true,
+        maximumAge: 3000,
+        timeout: 15000
+      }
+    );
+  }
+
+  async function joinGame(nickname) {
+    let user = auth.currentUser;
+
+    if (!user) {
+      const result = await auth.signInAnonymously();
+      user = result.user;
+    }
+
+    playerRef = db.ref(`games/${cfg.gameId}/players/${user.uid}`);
+
+    const snapshot = await playerRef.once("value");
+
+    if (snapshot.exists()) {
+      const saved = snapshot.val();
+
+      playerData = {
+        nickname,
+        score: Math.max(0, Number(saved.score) || 0),
+        checkpointIndex: Math.max(0, Number(saved.checkpointIndex) || 0),
+        attempts: Math.max(0, Number(saved.attempts) || 0),
+        updatedAt: Date.now()
+      };
+
+      await playerRef.update({
+        nickname,
+        updatedAt: playerData.updatedAt
+      });
+    } else {
+      playerData = {
+        nickname,
+        score: 0,
+        checkpointIndex: 0,
+        attempts: 0,
+        updatedAt: Date.now()
+      };
+      await playerRef.set(playerData);
+    }
+
+    playerRef.on("value", snapshot => {
+      if (!snapshot.exists()) return;
+
+      const previousIndex = renderedCheckpointIndex;
+      playerData = snapshot.val();
+
+      $("playerName").textContent = `Player: ${playerData.nickname || nickname}`;
+      renderScoreAndProgress();
+
+      const currentIndex = Number(playerData.checkpointIndex) || 0;
+
+      if (previousIndex !== currentIndex) {
+        renderedCheckpointIndex = currentIndex;
+        renderCurrentCheckpoint();
+      } else if (!questionPanel.hidden) {
+        updateAttemptText();
+      }
+    });
+  }
+
+  joinForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const nickname = nicknameInput.value.trim();
+    if (!nickname) return;
+
+    $("startButton").disabled = true;
+    statusEl.textContent = "Connecting to the game...";
+
+    try {
+      await joinGame(nickname);
+      joinPanel.hidden = true;
+      gamePanel.hidden = false;
+      $("playerName").textContent = `Player: ${nickname}`;
+      renderScoreAndProgress();
+
+      setTimeout(() => {
+        const point = currentCheckpoint();
+
+        if (renderedCheckpointIndex === null) {
+          renderedCheckpointIndex = Number(playerData.checkpointIndex) || 0;
+        }
+
+        if (point && validPoint(point)) {
+          renderCurrentCheckpoint();
+        } else if (!point) {
+          renderCurrentCheckpoint();
+        } else {
+          statusEl.textContent =
+            `Set the coordinates for ${point.name} in game-config.js before playing.`;
+          setTimeout(() => $("map").style.height = "360px", 50);
+        }
+      }, 100);
+    } catch (error) {
+      console.error(error);
+      statusEl.textContent =
+        "Could not connect. Check Firebase config, Authentication and Database Rules.";
+      $("startButton").disabled = false;
+    }
+  });
+
+  $("stopButton").addEventListener("click", () => {
+    stopGps();
+    statusEl.textContent =
+      "GPS stopped. Refresh the page to restart location checking.";
+  });
+
+  answerForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    if (!playerRef || !playerData || submitting || !insideRadius) return;
+
+    const selected = answerForm.querySelector(
+      'input[name="answer"]:checked'
+    );
+
+    if (!selected) {
+      feedbackEl.textContent = "Select an answer first.";
+      return;
+    }
+
+    const point = currentCheckpoint();
+    if (!point) return;
+
+    const expectedIndex = Number(playerData.checkpointIndex) || 0;
+    const isCorrect = selected.value === point.answer;
+
+    submitting = true;
+    answerButton.disabled = true;
+
+    try {
+      const result = await playerRef.transaction(current => {
+        if (!current) return;
+
+        const currentIndex = Number(current.checkpointIndex) || 0;
+        if (currentIndex !== expectedIndex) return;
+
+        const oldScore = Math.max(0, Number(current.score) || 0);
+        const attempts = Number(current.attempts) || 0;
+
+        if (isCorrect) {
+          return {
+            ...current,
+            score: oldScore + Math.max(0, Number(point.points) || 0),
+            checkpointIndex: currentIndex + 1,
+            attempts: 0,
+            updatedAt: Date.now()
+          };
+        }
+
+        const newAttempts = attempts + 1;
+        const newScore = Math.max(
+          0,
+          oldScore - Math.max(0, Number(point.wrongPenalty) || 0)
+        );
+
+        return {
+          ...current,
+          score: newScore,
+          checkpointIndex: newAttempts >= 2
+            ? currentIndex + 1
+            : currentIndex,
+          attempts: newAttempts >= 2 ? 0 : newAttempts,
+          updatedAt: Date.now()
+        };
+      });
+
+      if (!result.committed) {
+        feedbackEl.textContent =
+          "This answer was already processed, or your game progress changed.";
         return;
       }
 
-      document.title = config.title || "เกมล่าสมบัติ GPS";
-      $("gameTitle").textContent = config.title || "เกมล่าสมบัติ GPS";
+      const updated = result.snapshot.val();
+      const movedToNext =
+        Number(updated.checkpointIndex) > expectedIndex;
 
-      if (state.nickname) {
-        nicknameInput.value = state.nickname;
+      if (isCorrect) {
+        feedbackEl.textContent =
+          `Correct! You earned ${Math.max(0, Number(point.points) || 0)} points.`;
+      } else if (movedToNext) {
+        feedbackEl.textContent =
+          "Two incorrect attempts used. The next checkpoint is unlocked.";
+      } else {
+        feedbackEl.textContent =
+          "Incorrect. Points deducted. You have one attempt left.";
       }
 
-      function loadState() {
-        try {
-          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-          if (
-            saved &&
-            typeof saved.nickname === "string" &&
-            Number.isFinite(saved.score) &&
-            Number.isInteger(saved.nextCheckpoint)
-          ) {
-            return saved;
-          }
-        } catch (_) {
-          // เริ่มเกมใหม่หากข้อมูลในเบราว์เซอร์อ่านไม่ได้
-        }
-
-        return { nickname: "", score: 0, nextCheckpoint: 0 };
+      if (movedToNext) {
+        setTimeout(() => {
+          feedbackEl.textContent = "";
+          renderCurrentCheckpoint();
+        }, 700);
+      } else {
+        updateAttemptText();
       }
+    } catch (error) {
+      console.error(error);
+      feedbackEl.textContent = "Could not save your answer. Please try again.";
+    } finally {
+      submitting = false;
+      answerButton.disabled = false;
+    }
+  });
 
-      function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      }
-
-      function renderProgress() {
-        scoreEl.textContent = `คะแนน: ${state.score}`;
-
-        if (state.nextCheckpoint >= config.checkpoints.length) {
-          progressEl.textContent = "ทำภารกิจครบแล้ว";
-          questionArea.hidden = true;
-          distanceEl.textContent = "";
-          stopGps();
-          statusEl.textContent = "ภารกิจสำเร็จ ยินดีด้วย!";
-          return;
-        }
-
-        progressEl.textContent =
-          `ภารกิจ ${state.nextCheckpoint + 1} จาก ${config.checkpoints.length}`;
-      }
-
-      function stopGps() {
-        if (watchId !== null && navigator.geolocation) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-      }
-
-      function distanceInMeters(lat1, lon1, lat2, lon2) {
-        const radians = degrees => degrees * Math.PI / 180;
-        const earthRadius = 6371000;
-        const dLat = radians(lat2 - lat1);
-        const dLon = radians(lon2 - lon1);
-
-        const a =
-          Math.sin(dLat / 2) ** 2 +
-          Math.cos(radians(lat1)) *
-          Math.cos(radians(lat2)) *
-          Math.sin(dLon / 2) ** 2;
-
-        return 2 * earthRadius * Math.atan2(
-          Math.sqrt(a),
-          Math.sqrt(1 - a)
-        );
-      }
-
-      function isCoordinateSet(point) {
-        return point &&
-          Number.isFinite(point.lat) &&
-          Number.isFinite(point.lng) &&
-          point.lat >= -90 &&
-          point.lat <= 90 &&
-          point.lng >= -180 &&
-          point.lng <= 180;
-      }
-
-      function showQuestion(point) {
-        reachedCurrentPoint = true;
-        questionTitle.textContent = point.name || "คำถาม";
-        questionText.textContent = point.question || "";
-        feedbackEl.textContent = "";
-        answerFields.replaceChildren();
-
-        if (point.image) {
-          questionImage.src = point.image;
-          questionImage.alt = point.imageAlt || "ภาพประกอบคำถาม";
-          questionImage.hidden = false;
-        } else {
-          questionImage.removeAttribute("src");
-          questionImage.alt = "";
-          questionImage.hidden = true;
-        }
-
-        if (point.type === "choice") {
-          (point.options || []).forEach((option, index) => {
-            const label = document.createElement("label");
-            const radio = document.createElement("input");
-
-            radio.type = "radio";
-            radio.name = "answer";
-            radio.value = option.id;
-            radio.required = index === 0;
-
-            label.append(radio, document.createTextNode(option.label));
-            answerFields.appendChild(label);
-          });
-        } else {
-          const label = document.createElement("label");
-          const input = document.createElement("input");
-
-          label.htmlFor = "playerAnswer";
-          label.textContent = "คำตอบ";
-          input.id = "playerAnswer";
-          input.name = "answer";
-          input.type = "text";
-          input.autocomplete = "off";
-          input.required = true;
-          input.maxLength = 200;
-
-          answerFields.append(label, input);
-        }
-
-        questionArea.hidden = false;
-        statusEl.textContent = "ถึงจุดหมายแล้ว! ตอบคำถามเพื่อไปต่อ";
-      }
-
-      function handlePosition(position) {
-        if (state.nextCheckpoint >= config.checkpoints.length) return;
-
-        const point = config.checkpoints[state.nextCheckpoint];
-
-        if (!isCoordinateSet(point)) {
-          statusEl.textContent =
-            `ยังไม่ได้ตั้งพิกัดของ “${point.name || "จุดนี้"}” ใน game-config.js`;
-          return;
-        }
-
-        const { latitude, longitude, accuracy } = position.coords;
-        const distance = distanceInMeters(
-          latitude, longitude, point.lat, point.lng
-        );
-
-        distanceEl.textContent =
-          `ห่างจากจุดหมายประมาณ ${Math.round(distance)} เมตร ` +
-          `(ค่าความแม่นยำ GPS ที่อุปกรณ์รายงาน ±${Math.round(accuracy)} เมตร)`;
-
-        if (distance <= (config.radiusMeters || 30) && !reachedCurrentPoint) {
-          showQuestion(point);
-        } else if (!reachedCurrentPoint) {
-          statusEl.textContent = "กำลังตรวจตำแหน่ง เดินเข้าใกล้จุดหมาย";
-        }
-      }
-
-      function handleLocationError(error) {
-        const messages = {
-          1: "ยังไม่ได้อนุญาตให้ใช้ตำแหน่ง กรุณาเปิด Location ให้เว็บไซต์",
-          2: "หาตำแหน่งไม่พบ ลองไปยังบริเวณโล่งแล้วเริ่มใหม่",
-          3: "การหาตำแหน่งใช้เวลานานเกินไป ลองเริ่มใหม่"
-        };
-        statusEl.textContent =
-          messages[error.code] || "เกิดข้อผิดพลาดในการอ่านตำแหน่ง";
-      }
-
-      joinForm.addEventListener("submit", event => {
-        event.preventDefault();
-
-        const nickname = nicknameInput.value.trim();
-        if (!nickname) return;
-
-        const isSamePlayer =
-          state.nickname.trim().toLocaleLowerCase("th") ===
-          nickname.toLocaleLowerCase("th");
-
-        if (!isSamePlayer) {
-          state = { nickname, score: 0, nextCheckpoint: 0 };
-          saveState();
-        } else {
-          state.nickname = nickname;
-        }
-
-        if (state.nextCheckpoint >= config.checkpoints.length) {
-          statusEl.textContent = "เกมนี้เล่นครบแล้ว หากต้องการเริ่มใหม่ให้กดรีเซ็ตเกม";
-          gameArea.hidden = false;
-          joinArea.hidden = true;
-          playerLabel.textContent = `ผู้เล่น: ${state.nickname}`;
-          renderProgress();
-          return;
-        }
-
-        const point = config.checkpoints[state.nextCheckpoint];
-        if (!isCoordinateSet(point)) {
-          gameArea.hidden = false;
-          joinArea.hidden = true;
-          playerLabel.textContent = `ผู้เล่น: ${state.nickname}`;
-          renderProgress();
-          statusEl.textContent =
-            `กรุณากำหนดพิกัดของ “${point.name || "จุดนี้"}” ใน game-config.js ก่อนเล่น`;
-          return;
-        }
-
-        if (!navigator.geolocation) {
-          statusEl.textContent = "เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง";
-          return;
-        }
-
-        if (!window.isSecureContext) {
-          statusEl.textContent =
-            "กรุณาเปิดเว็บผ่าน HTTPS เช่นลิงก์ GitHub Pages";
-          return;
-        }
-
-        gameArea.hidden = false;
-        joinArea.hidden = true;
-        playerLabel.textContent = `ผู้เล่น: ${state.nickname}`;
-        renderProgress();
-        statusEl.textContent = "กำลังขอตำแหน่งจากอุปกรณ์...";
-        stopGps();
-
-        watchId = navigator.geolocation.watchPosition(
-          handlePosition,
-          handleLocationError,
-          {
-            enableHighAccuracy: true,
-            maximumAge: 3000,
-            timeout: 15000
-          }
-        );
-      });
-
-      stopButton.addEventListener("click", () => {
-        stopGps();
-        statusEl.textContent =
-          "หยุดตรวจตำแหน่งแล้ว กดเริ่มเกม / เล่นต่อเพื่อเปิด GPS อีกครั้ง";
-      });
-
-      answerForm.addEventListener("submit", event => {
-        event.preventDefault();
-
-        if (!reachedCurrentPoint) {
-          feedbackEl.textContent = "ต้องเดินถึงจุดหมายก่อนจึงจะตอบได้";
-          return;
-        }
-
-        const point = config.checkpoints[state.nextCheckpoint];
-        let submittedAnswer = "";
-
-        if (point.type === "choice") {
-          const selected = answerForm.querySelector(
-            'input[name="answer"]:checked'
-          );
-          submittedAnswer = selected ? selected.value : "";
-        } else {
-          submittedAnswer =
-            answerForm.querySelector('[name="answer"]').value.trim();
-        }
-
-        const acceptedAnswers = Array.isArray(point.answers)
-          ? point.answers
-          : [point.answer];
-
-        const normalize = value =>
-          String(value ?? "")
-            .trim()
-            .normalize("NFC")
-            .toLocaleLowerCase("th");
-
-        const correct = acceptedAnswers.some(
-          answer => normalize(answer) === normalize(submittedAnswer)
-        );
-
-        if (!correct) {
-          const penalty = Number.isFinite(point.wrongPenalty)
-            ? point.wrongPenalty
-            : 0;
-
-          state.score = Math.max(0, state.score - penalty);
-          saveState();
-          renderProgress();
-          feedbackEl.textContent = penalty > 0
-            ? `ยังไม่ถูก หัก ${penalty} คะแนน ลองอีกครั้ง`
-            : "ยังไม่ถูก ลองอีกครั้งนะ";
-          return;
-        }
-
-        const points = Number.isFinite(point.points) ? point.points : 0;
-        state.score += points;
-        state.nextCheckpoint += 1;
-        reachedCurrentPoint = false;
-        saveState();
-
-        questionArea.hidden = true;
-        feedbackEl.textContent = "";
-        renderProgress();
-
-        if (state.nextCheckpoint < config.checkpoints.length) {
-          statusEl.textContent =
-            `ตอบถูก ได้ ${points} คะแนน เดินทางไปยังจุดถัดไป`;
-        }
-      });
-
-      $("resetButton")?.addEventListener("click", () => {
-        stopGps();
-        localStorage.removeItem(STORAGE_KEY);
-        state = { nickname: "", score: 0, nextCheckpoint: 0 };
-        location.reload();
-      });
-
-      renderProgress();
-
-      window.addEventListener("pagehide", stopGps);
-    })();
-  </script>
+  window.addEventListener("pagehide", stopGps);
+})();
+</script>
 </body>
 </html>
