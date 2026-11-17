@@ -34,7 +34,7 @@ const makeCheckpoint = (
 window.GAME_CONFIG = {
   gameId: "sds-quest-trial",
   title: "SDS Quest",
-  radiusMeters: 15,
+  radiusMeters: 25,
 
   // เพิ่มหรือลบรายการ makeCheckpoint(...) เพื่อเปลี่ยนจำนวนคำถาม
   checkpoints: [
