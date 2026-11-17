@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SDS Quest — Organizer Dashboard</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 20px 12px;
+      background: #f3f6fb;
+      color: #172033;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px #17203314;
+    }
+
+    input {
+      max-width: 320px;
+      width: 100%;
+      margin: 5px 4px 5px 0;
+      padding: 10px;
+      font: inherit;
+    }
+
+    button {
+      padding: 10px 16px;
+      margin: 5px 4px 5px 0;
+      border: 0;
+      border-radius: 8px;
+      background: #1769e0;
+      color: #fff;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 16px;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #dce3ed;
+      text-align: left;
+    }
+
+    .muted {
+      color: #526176;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+<main>
+  <h1>SDS Quest — Organizer Dashboard</h1>
+
+  <section id="loginPanel">
+    <p>Sign in with the organizer account.</p>
+    <form id="loginForm">
+      <input
+        id="email"
+        type="email"
+        placeholder="Organizer email"
+        autocomplete="username"
+        required
+      >
+      <input
+        id="password"
+        type="password"
+        placeholder="Password"
+        autocomplete="current-password"
+        required
+      >
+      <button type="submit">Sign in</button>
+    </form>
+  </section>
+
+  <section id="dashboard" hidden>
+    <p id="adminStatus" class="muted"></p>
+    <button id="logoutButton" type="button">Sign out</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Nickname</th>
+          <th>Score</th>
+          <th>Progress</th>
+          <th>Last updated</th>
+        </tr>
+      </thead>
+      <tbody id="playerRows"></tbody>
+    </table>
+  </section>
+
+  <p id="message" class="muted" aria-live="polite"></p>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="game-config.js"></script>
+
+<script>
+(() => {
+  const cfg = window.GAME_CONFIG;
+  const firebaseConfig = window.FIREBASE_CONFIG;
+  const message = document.getElementById("message");
+
+  if (!cfg || !firebaseConfig) {
+    message.textContent = "Check the settings in game-config.js.";
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+
+  const auth = firebase.auth();
+  const db = firebase.database();
+  const loginPanel = document.getElementById("loginPanel");
+  const dashboard = document.getElementById("dashboard");
+  const playerRows = document.getElementById("playerRows");
+
+  let playersRef = null;
+
+  function stopPlayersListener() {
+    if (playersRef) {
+      playersRef.off();
+      playersRef = null;
+    }
+  }
+
+  function renderPlayers(snapshot) {
+    playerRows.replaceChildren();
+
+    const players = [];
+    snapshot.forEach(child => {
+      players.push(child.val());
+    });
+
+    players.sort(
+      (a, b) => (Number(b.score) || 0) - (Number(a.score) || 0)
+    );
+
+    players.forEach(player => {
+      const row = document.createElement("tr");
+      const completed = Math.min(
+        Number(player.checkpointIndex) || 0,
+        cfg.checkpoints.length
+      );
+
+      const progress = completed >= cfg.checkpoints.length
+        ? "Complete"
+        : `${completed} / ${cfg.checkpoints.length} checkpoints`;
+
+      const values = [
+        player.nickname || "(no nickname)",
+        String(Math.max(0, Number(player.score) || 0)),
+        progress,
+        player.updatedAt
+          ? new Date(player.updatedAt).toLocaleTimeString()
+          : "—"
+      ];
+
+      values.forEach(value => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+
+      playerRows.appendChild(row);
+    });
+
+    document.getElementById("adminStatus").textContent =
+      `${players.length} player(s) · live updates`;
+  }
+
+  document.getElementById("loginForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    message.textContent = "Signing in...";
+
+    try {
+      await auth.signInWithEmailAndPassword(
+        document.getElementById("email").value.trim(),
+        document.getElementById("password").value
+      );
+      message.textContent = "";
+    } catch (error) {
+      console.error(error);
+      message.textContent =
+        "Sign-in failed. Check the organizer email, password, and Firebase setup.";
+    }
+  });
+
+  document.getElementById("logoutButton").addEventListener("click", async () => {
+    stopPlayersListener();
+    await auth.signOut();
+  });
+
+  auth.onAuthStateChanged(user => {
+    stopPlayersListener();
+    playerRows.replaceChildren();
+
+    if (!user) {
+      loginPanel.hidden = false;
+      dashboard.hidden = true;
+      return;
+    }
+
+    loginPanel.hidden = true;
+    dashboard.hidden = false;
+
+    playersRef = db.ref(`games/${cfg.gameId}/players`);
+    playersRef.on("value", renderPlayers, error => {
+      console.error(error);
+      message.textContent =
+        "Could not read scores. Check the organizer email in the Database Rules.";
+    });
+  });
+})();
+</script>
+</body>
+</html>
