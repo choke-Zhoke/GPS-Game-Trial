@@ -132,8 +132,8 @@
 
 <body>
 <main>
-  <h1>SDS Quest</h1>
-  <p>Travel to each marked location to unlock its question.</p>
+  <h1>SDS FUN RUN Quest</h1>
+  <p>Did you Know about SDS </p>
 
   <section id="joinPanel" class="card">
     <form id="joinForm">
@@ -418,12 +418,17 @@
   }
 
   function showQuestion(point) {
-    if (insideRadius) return;
+  if (insideRadius) return;
 
-    insideRadius = true;
-    renderQuestion(point);
-    statusEl.textContent = "Checkpoint reached. Question unlocked.";
+  insideRadius = true;
+  renderQuestion(point);
+  statusEl.textContent = "Checkpoint reached. Question unlocked.";
+
+  // สั่นเมื่อปลดล็อกคำถาม หากอุปกรณ์และเบราว์เซอร์รองรับ
+  if (typeof navigator.vibrate === "function") {
+    navigator.vibrate([180, 80, 180, 80, 350]);
   }
+}
 
   function handlePosition(position) {
     const point = currentCheckpoint();
