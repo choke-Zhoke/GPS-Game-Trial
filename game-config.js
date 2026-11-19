@@ -81,7 +81,7 @@ window.GAME_CONFIG = {
   ], "b"),
 
   image: "./images/question-4.jpg",
-  imageAlt: "ภาพสัตว์ในคำถามข้อ 4"
+  imageAlt: "ภาพคำถามข้อ 4"
 }
 
    
